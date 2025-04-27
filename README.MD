@@ -322,5 +322,110 @@ use App\Http\Controllers\MpesaController;
 Route::post('/stkpush', [MpesaController::class, 'stkPush']);
 ```
 
+
 ---
 
+# 📦 Postman Collection - **M-PESA STK Push**
+
+Here’s the **collection structure**:
+
+- **Collection Name**: `MPESA STK PUSH API`
+- **Single POST request**: `/stkpush`
+- **Environment Variables** used:
+  - `base_url`
+  - `token` (optional if you set Authorization manually)
+
+---
+
+# 🗂️ Collection JSON
+
+```json
+{
+  "info": {
+    "_postman_id": "ea6be7b2-4b51-489f-9c5c-47d88f8a5f8c",
+    "name": "MPESA STK PUSH API",
+    "description": "Collection to trigger M-PESA STK Push",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "STK Push Request",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "name": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"amount\": 10,\n    \"phone\": \"2547XXXXXXXX\",\n    \"accountReference\": \"TestAccount\",\n    \"transactionDesc\": \"Test STK Push\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/stkpush",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "stkpush"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
+```
+
+---
+
+# 🌍 Environment Setup for Postman
+
+Create a new **Environment** called `MPESA API ENV` with:
+
+| Variable      | Initial Value                  | Current Value         |
+| :------------ | :------------------------------ | :-------------------- |
+| `base_url`    | `http://localhost:3000` (for Node.js) or `http://localhost:8000/api` (for Laravel) | Same |
+| `token`       | *(Optional if you want to manually insert Authorization Header)* | |
+
+---
+
+# ✅ Steps to Import into Postman
+
+1. Open **Postman** → Click **Import** (top left).
+2. Select **Raw Text** and paste the JSON above.
+3. Click **Continue** → **Import**.
+4. Create an environment called `MPESA API ENV` and set the `base_url`.
+5. Use the collection and send a POST request 🚀
+
+---
+
+# 📷 Quick Preview (what it will look like):
+
+```
+POST {{base_url}}/stkpush
+Headers:
+  Content-Type: application/json
+
+Body (raw JSON):
+{
+  "amount": 10,
+  "phone": "2547XXXXXXXX",
+  "accountReference": "TestAccount",
+  "transactionDesc": "Test STK Push"
+}
+```
+
+---
+
+# ⚡ Notes:
+- Replace `"2547XXXXXXXX"` with a real Safaricom number registered on M-PESA.
+- Ensure your backend server (`localhost:3000` for Node.js OR `localhost:8000` for Laravel) is **running** when you hit this.
+- If you set **Authorization Bearer Tokens**, modify the Collection and add it under Headers.
+
+---
+
+W
