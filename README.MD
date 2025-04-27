@@ -93,7 +93,234 @@ Created and maintained by **DataGeek404**.
 
 ---
 
+
+
+- a `.env.example` file
+- starter code for **Node.js (Express)**  
+- starter code for **Laravel**  
+
 ---
 
-Would you also like me to create a small sample `.env.example` and starter code for the Node.js or Laravel side if you want to plug the passkey directly into a project? 🚀  
-I can quickly generate that too! 
+# 📄 `.env.example`
+
+```dotenv
+# M-PESA API CREDENTIALS
+MPESA_ENVIRONMENT=production
+MPESA_CONSUMER_KEY=your_consumer_key_here
+MPESA_CONSUMER_SECRET=your_consumer_secret_here
+MPESA_SHORTCODE=your_shortcode_here
+MPESA_PASSKEY=your_passkey_here
+MPESA_INITIATOR_NAME=your_initiator_name_here
+MPESA_INITIATOR_PASSWORD=your_initiator_password_here
+
+# CALLBACK URLs
+MPESA_CALLBACK_URL=https://yourdomain.com/callback
+MPESA_TIMEOUT_URL=https://yourdomain.com/timeout
+```
+
+---
+# 🚀 Node.js Starter Code (Express + Axios)
+
+Here’s a basic Express setup for STK Push:
+
+```javascript
+// stkPush.js
+
+require('dotenv').config();
+const axios = require('axios');
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+const baseURL = process.env.MPESA_ENVIRONMENT === 'production'
+  ? 'https://api.safaricom.co.ke'
+  : 'https://sandbox.safaricom.co.ke';
+
+// Function to get OAuth Token
+const getAccessToken = async () => {
+  const auth = Buffer.from(
+    `${process.env.MPESA_CONSUMER_KEY}:${process.env.MPESA_CONSUMER_SECRET}`
+  ).toString('base64');
+
+  const { data } = await axios.get(`${baseURL}/oauth/v1/generate?grant_type=client_credentials`, {
+    headers: {
+      Authorization: `Basic ${auth}`
+    }
+  });
+
+  return data.access_token;
+};
+
+// STK Push Request
+app.post('/stkpush', async (req, res) => {
+  try {
+    const accessToken = await getAccessToken();
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[^0-9]/g, '')
+      .slice(0, 14);
+
+    const password = Buffer.from(
+      `${process.env.MPESA_SHORTCODE}${process.env.MPESA_PASSKEY}${timestamp}`
+    ).toString('base64');
+
+    const stkPushPayload = {
+      BusinessShortCode: process.env.MPESA_SHORTCODE,
+      Password: password,
+      Timestamp: timestamp,
+      TransactionType: 'CustomerPayBillOnline',
+      Amount: req.body.amount,
+      PartyA: req.body.phone,
+      PartyB: process.env.MPESA_SHORTCODE,
+      PhoneNumber: req.body.phone,
+      CallBackURL: process.env.MPESA_CALLBACK_URL,
+      AccountReference: req.body.accountReference,
+      TransactionDesc: req.body.transactionDesc
+    };
+
+    const { data } = await axios.post(`${baseURL}/mpesa/stkpush/v1/processrequest`, stkPushPayload, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error:', error.response.data);
+    res.status(500).json({ error: error.response.data });
+  }
+});
+
+// Start Server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+```
+
+---
+
+# 🚀 Laravel Starter Code (Controller + Service)
+
+Assuming you are using Laravel 10+, here’s a **controller** and **service class** approach:
+
+---
+### 1. Install Guzzle HTTP (if not yet installed)
+
+```bash
+composer require guzzlehttp/guzzle
+```
+
+---
+
+### 2. Create a Service Class: `MpesaService.php`
+
+```php
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+
+class MpesaService
+{
+    protected $baseUrl;
+
+    public function __construct()
+    {
+        $this->baseUrl = config('app.mpesa_environment') === 'production'
+            ? 'https://api.safaricom.co.ke'
+            : 'https://sandbox.safaricom.co.ke';
+    }
+
+    private function getAccessToken()
+    {
+        $response = Http::withBasicAuth(
+            env('MPESA_CONSUMER_KEY'),
+            env('MPESA_CONSUMER_SECRET')
+        )->get($this->baseUrl . '/oauth/v1/generate?grant_type=client_credentials');
+
+        return $response->json()['access_token'];
+    }
+
+    public function stkPush($amount, $phone, $accountReference, $transactionDesc)
+    {
+        $timestamp = now()->format('YmdHis');
+        $password = base64_encode(
+            env('MPESA_SHORTCODE') . env('MPESA_PASSKEY') . $timestamp
+        );
+
+        $payload = [
+            'BusinessShortCode' => env('MPESA_SHORTCODE'),
+            'Password' => $password,
+            'Timestamp' => $timestamp,
+            'TransactionType' => 'CustomerPayBillOnline',
+            'Amount' => $amount,
+            'PartyA' => $phone,
+            'PartyB' => env('MPESA_SHORTCODE'),
+            'PhoneNumber' => $phone,
+            'CallBackURL' => env('MPESA_CALLBACK_URL'),
+            'AccountReference' => $accountReference,
+            'TransactionDesc' => $transactionDesc
+        ];
+
+        $response = Http::withToken($this->getAccessToken())
+            ->post($this->baseUrl . '/mpesa/stkpush/v1/processrequest', $payload);
+
+        return $response->json();
+    }
+}
+```
+
+---
+
+### 3. Create a Controller: `MpesaController.php`
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\MpesaService;
+use Illuminate\Http\Request;
+
+class MpesaController extends Controller
+{
+    protected $mpesaService;
+
+    public function __construct(MpesaService $mpesaService)
+    {
+        $this->mpesaService = $mpesaService;
+    }
+
+    public function stkPush(Request $request)
+    {
+        $validated = $request->validate([
+            'amount' => 'required|numeric',
+            'phone' => 'required|string',
+            'accountReference' => 'required|string',
+            'transactionDesc' => 'required|string'
+        ]);
+
+        $response = $this->mpesaService->stkPush(
+            $validated['amount'],
+            $validated['phone'],
+            $validated['accountReference'],
+            $validated['transactionDesc']
+        );
+
+        return response()->json($response);
+    }
+}
+```
+
+---
+
+### 4. Add a Route: `web.php` or `api.php`
+
+```php
+use App\Http\Controllers\MpesaController;
+
+Route::post('/stkpush', [MpesaController::class, 'stkPush']);
+```
+
+---
+
